@@ -13,7 +13,6 @@
 #include <ctre/Phoenix.h>
 #include "ctre/phoenix/MotorControl/CAN/TalonSRX.h"
 #include <RobotDrive.h>
-#include <VictorSP.h>
 #include <XboxController.h>
 #include <Driverstation.h>
 #include <DoubleSolenoid.h>
@@ -40,6 +39,7 @@ public:
 	bool Y = (controller->GetRawButton(4));
 	bool RB = (controller->GetRawButton(6));
 	bool LB = (controller->GetRawButton(5));
+	bool LS = (controller->GetRawButton(9));
 	double LT = (controller->GetRawAxis(2));
 	double RT = (controller->GetRawAxis(3));
 	double LY = controller->GetY(GenericHID::JoystickHand(0));
@@ -65,6 +65,8 @@ public:
 	}
 
 	void TeleopPeriodic() {
+
+		//xbox controller values
 		LT = (controller->GetRawAxis(2));
 		RT = (controller->GetRawAxis(3));
 		LY = controller->GetY(GenericHID::JoystickHand(0));
@@ -73,11 +75,19 @@ public:
 		leftValue = LY;
 		rightValue = RY;
 
+		//drive train values
+		left1->Set(leftValue); //add follow command later
+		left2->Set(leftValue);
 		left3->Set(leftValue);
+		
+		right1->Set(rightValue); //add follow command later
+		right2->Set(rightValue);
+		right3->Set(rightValue);
+
 	}
 
 	void TestPeriodic() {
-		
+
 	}
 
 private:
