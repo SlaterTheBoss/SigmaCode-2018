@@ -46,6 +46,7 @@ public:
 	WPI_TalonSRX * left1 = new WPI_TalonSRX(4);
 	WPI_TalonSRX * left2 = new WPI_TalonSRX(5);
 	WPI_TalonSRX * left3 = new WPI_TalonSRX(6);
+	WPI_TalonSRX * lift1 = new WPI_TalonSRX(7); //ELEVATOR TEST VALUE
 
 	//XboxController
 	XboxController * controller = new XboxController(0);
@@ -60,12 +61,13 @@ public:
 	double RT;
 	double LY;
 	double RY;
-	//button states (for actuators with multiple states)
+	//system states (for actuators with multiple states)
 	bool state_RB = false;
 	bool state_LB = false;
+	bool liftState = 0;
 
-	double leftValue; /*left motor value (TeleopPeriodic)*/
-	double rightValue; /*right motor value (TeleopPeriodic)*/
+	double leftDriveValue;
+	double rightDriveValue;
 
 	void RobotInit() {
 
@@ -110,43 +112,45 @@ public:
 		LY = controller->GetY(GenericHID::JoystickHand(0));
 		RY = controller->GetY(GenericHID::JoystickHand(1));
 
-		leftValue = LY;
-		rightValue = -1 * RY;
+		leftDriveValue = -LY;
+        rightDriveValue = RY;
 
-		//drive train values
-		left1->Set(leftValue); //add follow command
-		left2->Set(leftValue); //removed for testing **WORKING***
-		left3->Set(leftValue);
-		right1->Set(rightValue); //add follow command
-		right2->Set(rightValue);
-		right3->Set(rightValue);
+        //drive train values
+		left1->Set(leftDriveValue); //add follow command
+		left2->Set(leftDriveValue);
+		left3->Set(leftDriveValue);
+		right1->Set(rightDriveValue); //add follow command
+		right2->Set(rightDriveValue);
+		right3->Set(rightDriveValue);
+
+
 
 		//limelight vision code
-		tx = table->GetNumber("tx", 0.0);
-		ty = table->GetNumber("ty", 0.0);
+    	tx = table->GetNumber("tx", 0.0);
+    	ty = table->GetNumber("ty", 0.0);
 		tv = table->GetNumber("tv", 0.0);
-		ta = table->GetNumber("ta", 0.0);
+    	ta = table->GetNumber("ta", 0.0);
 
-		if (B)
-		{
-			/*
-			 * if the target is found: robot turns and moves towards the object
-			 * if target area is greater than 85%: robot will stop
-			 * if no target is found: do nothing
-			 */
+    	if (B)
+    	{
+    		/*
+    		 * if the target is found: robot turns and moves towards the object
+    		 * if target area is greater than 85%: robot will stop
+    		 * if no target is found: do nothing
+    		 */
 
-			if(tv == 1) //If a target is detected
+    		if(tv == 1) //If a target is detected
 			{
 
 				if(ta < 75)
 				{
 
-					float heading_error = -tx;
+					float heading_error = tx;
 					float steering_adjust = 0.0f;
 
-					speed = (-ta/100) + 1;
-					/*
-					if (tx > 0.0)
+	    			speed = (-ta/100) + 1;
+	               	/*
+	    			if (tx > 0.0)
 					{
 						left1->Set(speed);
 					}
@@ -154,46 +158,48 @@ public:
 					{
 						left1->Set(-speed);
 					}
-					*/
+	               	*/
 
 					//motor speed does not go over 1
-					if (tx > 0.0)
-					{
-						steering_adjust = Kp * heading_error - min_command;
-					}
-					else if (tx < 0.0)
-					{
-						steering_adjust = Kp * heading_error + min_command;
-					}
+	    			if (tx > 0.0)
+	    			{
+	    				steering_adjust = Kp * heading_error - min_command;
+	    			}
+	    			else if (tx < 0.0)
+	    			{
+	    				steering_adjust = Kp * heading_error + min_command;
+	    			}
 
-					left1->Set(left1->Get() + steering_adjust);
-					left2->Set(left2->Get() + steering_adjust);
-					left3->Set(left3->Get() + steering_adjust);
-					right1->Set(right1->Get() - steering_adjust);
-					right2->Set(right2->Get() - steering_adjust);
-					right3->Set(right3->Get() - steering_adjust);
+	    			left1->Set(left1->Get() + steering_adjust);
+	    			left2->Set(left2->Get() + steering_adjust);
+	    			left3->Set(left3->Get() + steering_adjust);
+	    			right1->Set(right1->Get() + steering_adjust);
+	    			right2->Set(right2->Get() + steering_adjust);
+	    			right3->Set(right3->Get() + steering_adjust);
 
 				} //sets distance limit using 'ta'
 			} //closes 'if target detected' loop
-		} //loses vision function
+    	} //closes vision function
 
-		//Pneumatics Code
-		compressor->SetClosedLoopControl(true);
+    	//Elevator code
+
+    	//Pneumatics Code
+    	compressor->SetClosedLoopControl(true);
 
 /*
-		if(RB && (state_RB == false))
-		{
-			sigmaGift.Set(frc::DoubleSolenoid::Value::kForward);
-			state_RB = !state_RB;
-		}
-		else if(RB && (state_RB == true))
-		{
-			sigmaGift.Set(frc::DoubleSolenoid::Value::kReverse);
-			state_RB = !state_RB;
-		}
+    	if(RB && (state_RB == false))
+    	{
+    		sigmaGift.Set(frc::DoubleSolenoid::Value::kForward);
+    		state_RB = !state_RB;
+    	}
+    	else if(RB && (state_RB == true))
+    	{
+    		sigmaGift.Set(frc::DoubleSolenoid::Value::kReverse);
+    		state_RB = !state_RB;
+    	}
 */
 
-		//
+    	//
 		if(RB == true){
 			sigmaShift.Set(frc::DoubleSolenoid::Value::kForward);
 
