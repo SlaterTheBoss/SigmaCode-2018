@@ -15,342 +15,542 @@
 #include <XboxController.h>
 #include <Compressor.h>
 #include <DoubleSolenoid.h>
+#include <ADXRS450_Gyro.h>
 //#include <NetworkTable.h> //try to fix later
-#include "WPIlib.h" //replace with network-tables later
+#include "WPIlib.h" //replace with network-tables
 
+#define TICKS_PER_INCH 1672
+/*
 #define STATE1 		1
 #define STATE1_5 	2
 #define STATE2 		3
 #define STATE2_5 	4
 #define STATE3 		5
-
+*/
 class Robot : public frc::IterativeRobot {
 public:
 
-	std::string gamedata;
+//	std::string gamedata;
 	std::string _sb;
 	//limelight network table declarations
+
 	std::shared_ptr<NetworkTable> table = NetworkTable::GetTable("limelight");
+
 	float tv; //targets detected
 	float ta; //target area in '%'
 	float tx; //x axis values
 	float ty; //y axis values
+
 	//limelight vision logic declarations
 	double speed;
-	float Kp = -0.1f;
+	float Kp = -0.025f; //-0.037 casts 'tx' directly to a value of 0 to 1
 	float min_command = 0.05f;
+	int tx_Sign = 0;
+	int tx_Val = 0;
+
+	int pulseWidthPosLeft = 0;
+	int pulseWidthPosRight = 0;
 
 	Compressor *compressor = new Compressor(0);
-	frc::DoubleSolenoid sigmaShift{0, 1}; // Shifts the gears
-	frc::DoubleSolenoid sigmaIntake1{2, 3}; // grabs the cube for in-take
-	frc::DoubleSolenoid sigmaIntake2{4, 5}; // grabs the cube for in-take
-	frc::DoubleSolenoid sigmaSucc{6, 7}; //
+	frc::DoubleSolenoid sigmaShift{0, 1}; // Shifts to high gear - LT Press-and-Hold
+	frc::DoubleSolenoid sigmaLift{2, 3}; // Elevate - ASCEND! - X Toggle
+	frc::DoubleSolenoid sigmaIntake1{4, 5}; // Cube GRIPP! - RT Toggle
 
-	WPI_TalonSRX * rightDrive = new WPI_TalonSRX(1);
-	WPI_TalonSRX * right2 = new WPI_TalonSRX(2);
-	WPI_TalonSRX * right3 = new WPI_TalonSRX(3);
-	WPI_TalonSRX * leftDrive = new WPI_TalonSRX(4);
-	WPI_TalonSRX * left2 = new WPI_TalonSRX(5);
-	WPI_TalonSRX * left3 = new WPI_TalonSRX(6);
-	WPI_VictorSPX *lift1 = new WPI_VictorSPX(7);
-	WPI_VictorSPX *lift2 = new WPI_VictorSPX(8);
+	//1,2,3
+	WPI_TalonSRX * leftDrive = new WPI_TalonSRX(1);
+	WPI_VictorSPX * left2 = new WPI_VictorSPX(2);
+	WPI_VictorSPX * left3 = new WPI_VictorSPX(3);
+
+	//4,5,6
+	WPI_TalonSRX * rightDrive = new WPI_TalonSRX(4);
+	WPI_VictorSPX * right2 = new WPI_VictorSPX(5);
+	WPI_VictorSPX * right3 = new WPI_VictorSPX(6);
+
+	WPI_TalonSRX *intakeLift = new WPI_TalonSRX(8);
+
+	WPI_TalonSRX *firstElev1 = new WPI_TalonSRX(7);
+	WPI_TalonSRX *secondElev = new WPI_TalonSRX(9);
+	WPI_VictorSPX *firstElev2 = new WPI_VictorSPX(10);
+
+	WPI_VictorSPX *intake1 = new WPI_VictorSPX(11);
+	WPI_VictorSPX *intake2 = new WPI_VictorSPX(12); // follows intake1
+
+	frc::ADXRS450_Gyro * Gyro = new ADXRS450_Gyro();
+	int resetGyro = 0;
 
 	//XboxController
 	XboxController * controller = new XboxController(0);
 	bool X;
 	bool A;
-	bool Y;
+    bool Y;
 	bool B;
 	bool RB;
 	bool LB;
-	bool LS;
+//	bool LS;
 	double LT;
 	double RT;
 	double LY;
 	double RY;
-	//system states (for actuators with multiple states)
-	bool state_RB = false;
-	bool state_LB = false;
+	int DP;
+	bool stateX = false;
+	bool stateRT = false;
 
-	// For Elevator state
-	int liftState = STATE1;
-	int nextState = STATE1;
+	bool intakeState = 0;
+	bool intakeStateFlipped = 0;
 
-	DigitalInput *liftSwitch1 = new DigitalInput(0);
-	DigitalInput *liftSwitch2 = new DigitalInput(1);
-	DigitalInput *liftSwitch3 = new DigitalInput(2);
+	double liftEncoder1;
+	double liftEncoder2;
 
+	double liftEncoderMax1;
+	double liftEncoderMin1;
+	double liftEncoderMax2;
+	double liftEncoderMin2;
 
-	/*
-	DigitalInput liftSwitch1(1);
-	DigitalInput liftSwitch1(2);
-	DigitalInput liftSwitch1(3);
-	*/
+	//int initEncoder = 0;
 
     double leftDriveValue;
 	double rightDriveValue;
 
-	void RobotInit() {
+	double rightOffset = 0.90;
 
+	int autoState = 0;
+	int robotState = 0;
+	int targetPulseWidthPosRight = 0;
+
+
+	void RobotInit() {
+		Gyro->Calibrate();
+	}
+
+	void sigmaDrive(double left, double right) {
+		leftDrive->Set(left);
+		rightDrive->Set(right * rightOffset);
+	}
+
+	bool moveStraight(int inches, double speed) {
+		bool ret = 0;
+
+		printf("%i as \n", autoState);
+
+		switch (autoState)
+		{
+			case 0 :
+				pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
+				targetPulseWidthPosRight = pulseWidthPosRight + (inches * TICKS_PER_INCH);
+				//printf("%i   %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
+				autoState = 1;
+				break;
+
+			case 1 :
+				sigmaDrive(-speed, speed);
+				autoState = 2;
+				break;
+
+			case 2 :
+				if (pulseWidthPosRight < targetPulseWidthPosRight)
+				{
+					pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
+					//printf("%i   %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
+				}
+				else
+				{
+					sigmaDrive(0, 0);
+					autoState = 0;
+					ret = true;
+				}
+
+				break;
+		}
+
+		return ret;
+	}
+
+	bool GyroTurn(double angle) {
+
+		bool ret = 0;
+
+		printf("%i rg \n", resetGyro);
+
+		switch (resetGyro) {
+
+		case 0 :
+			Gyro->Reset();
+			resetGyro = 1;
+			break;
+
+		case 1 :
+			double GyroAngle = Gyro->GetAngle();
+
+			if((angle + 0.47) > GyroAngle && (angle - 0.47) < GyroAngle) // When Gyro Angle reaches the range it stops
+			{
+				sigmaDrive(0.0, 0.0);
+				resetGyro = 0;
+				ret = 1;
+			}
+			else if((angle - 0.77) > GyroAngle) // When GyroAngle is Less it turns right
+			{
+				sigmaDrive(-0.4, -0.4);
+			}
+			else if((angle + 0.77) < GyroAngle) // When GyroAngle is Greater it turns left
+			{
+				sigmaDrive(0.4, 0.4);
+			}
+			break;
+		}
+
+		return ret;
 	}
 
 	void AutonomousInit() override {
-
-		std::cout << "Auto Start!";
-		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
-
+	//	std::cout << "Auto Start!";
+	//	gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
+/*
 		if(gamedata[0] == 'L')
 		{
-			leftDrive->Set(0.3);
+			//leftDrive->Set(0.3);
+		}
+		else if (gamedata[0] == 'R')
+		{
+			//leftDrive->Set(1.0);
 		}
 		else
 		{
-			leftDrive->Set(1.0);
-		}
 
+		}
+*/
+
+      // leftDrive->Set(0.2);
+      // rightDrive->Set(0.2);
 	}
 
 	void AutonomousPeriodic() {
 
+		bool status = 0;
+
+		printf("%i rs \n", robotState);
+
+		switch (robotState)
+		{
+			case 0 :
+
+				status = moveStraight(120, 0.5);
+
+				if(status == 1)
+				{
+					robotState = 1;
+
+				}
+				break;
+
+
+			case 1 :
+
+				status = GyroTurn(-90);
+
+				if (status == 1)
+				{
+					robotState = 2;
+				}
+				break;
+
+			case 2 :
+
+				status = moveStraight(72, 0.5);
+
+				if(status == 1)
+				{
+					robotState = 3;
+
+				}
+				break;
+
+			case 3 :
+
+				status = GyroTurn(-90);
+
+				if (status == 1)
+				{
+					robotState = 4;
+				}
+				break;
+
+			case 4 :
+				status = moveStraight(120, 0.5);
+
+				if(status == 1)
+				{
+					robotState = 5;
+				}
+				break;
+
+			case 5 :
+				status = GyroTurn(-90);
+				if (status == 1)
+				{
+					robotState = 6;
+				}
+				break;
+
+			case 6 :
+				status = moveStraight(72, 0.5);
+				if(status == 1)
+				{
+					robotState = 7;
+				}
+				break;
+			case 7 :
+				status = GyroTurn(-90);
+				if (status == 1)
+				{
+					robotState = 8;
+				}
+				break;
+		}
 	}
 
 	void TeleopInit() {
+		rightDrive->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 0);
+		leftDrive->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 0);
+
+		// second elev stage
+		firstElev2->SetInverted(true);
+		firstElev2->Follow(*firstElev1);
+
+		//	following motors (slave motors)
+		left2->Follow(*leftDrive); //drive train L2
+		left3->Follow(*leftDrive); //drive train L3
+		right2->Follow(*rightDrive); //drive train R2
+		right3->Follow(*rightDrive); //drive train R3
+
+	//	intake2->Follow(*intake1); //intakeMotor 2
+
+	//	intake2->SetInverted(true);
+
+//		firstLift2->Follow(*firstLift); //elevator 1
+//		firstLift2->SetInverted(true);
+
+		liftEncoderMax1 = 0;
+		liftEncoderMin1 = 0;
+		liftEncoderMax2 = 0;
+		liftEncoderMin2 = 0;
+
+
+	}
+
+	void processMotors()
+	{
+		//////////////////////////////////////
+		/// drivetrain motors
+		/////////////////////////////////////
+		sigmaDrive(leftDriveValue, rightDriveValue);
+
+		//////////////////////////////////////
+		/// intake motors
+		/////////////////////////////////////
+		if (LB)
+		{
+			intake1->Set(0.60);
+			intake2->Set(-0.60);
+		}
+		else if (RB)
+		{
+			intake1->Set(-1.0);
+			intake2->Set(1.0);
+		}
+		else
+		{
+			intake1->Set(0.0);
+			intake2->Set(0.0);
+		}
+
+		//////////////////////////////////////
+		/// intake lift motors
+		/////////////////////////////////////
+		if (A)
+		{
+			intakeLift->Set(0.10);
+		}
+		else if (B)
+		{
+			intakeLift->Set(-0.60);
+		}
+		else
+		{
+			intakeLift->Set(-0.13);
+		}
+
+		//////////////////////////////////////
+		/// second stage motor
+		/////////////////////////////////////
+		if (DP == 0)
+		{
+	//		secondElev->Set(-0.80);
+			liftAscend();
+		}
+		else if (DP == 180)
+		{
+	//		secondElev->Set(0.02);
+			liftDescend();
+		}
+		else
+		{
+			secondElev->Set(-0.09);
+			firstElev1->Set(0.025);
+		}
+
+		//////////////////////////////////////
+		/// first stage motor
+		/////////////////////////////////////
+		if (DP == 90)
+		{
+		//	firstElev1->Set(-0.30);
+		}
+		else if (DP == 270)
+		{
+//			firstElev1->Set(0.80);
+		}
+		else
+		{
+	//		firstElev1->Set(0.02);
+		}
+
+
+
+	}
+
+	void liftDescend() {
+
+		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
+		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
+
+		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+
+		if(firstEncoder1 < 9600)
+		{
+			firstElev1->Set(-0.50);
+		}
+		else
+		{
+			firstElev1->Set(0.02);
+		}
+
+		if(secondEncoder1 > 4500)
+		{
+			secondElev->Set(0.02);
+		}
+		else
+		{
+			secondElev->Set(-0.09);
+		}
+	}
+
+	void liftAscend() {
+
+		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
+		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
+
+		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+
+
+		if (firstEncoder1 > -20000)
+		{
+			firstElev1->Set(0.80);
+		}
+		else
+		{
+			firstElev1->Set(0.025);
+		}
+
+		if(secondEncoder1 < 28030)
+		{
+			secondElev->Set(-0.80);
+		}
+		else
+		{
+			secondElev->Set(-0.09);
+		}
+	}
+
+
+	void processPneumatics()
+	{
+		//////////////////////////////////////
+		/// elevator
+		/////////////////////////////////////
+		if (X)
+		{
+			if (sigmaLift.Get() == frc::DoubleSolenoid::Value::kForward)
+			{
+				sigmaLift.Set(frc::DoubleSolenoid::Value::kReverse);
+			}
+			else
+			{
+				sigmaLift.Set(frc::DoubleSolenoid::Value::kForward);
+			}
+		}
+
+		//////////////////////////////////////
+		/// drive train shift
+		/////////////////////////////////////
+    	if(LT > 0.5) // Shifts gears
+    	{
+    		sigmaShift.Set(frc::DoubleSolenoid::Value::kForward);
+    	}
+    	else
+    	{
+    		sigmaShift.Set(frc::DoubleSolenoid::Value::kReverse);
+    	}
+
+		//////////////////////////////////////
+		/// Intake piston
+		/////////////////////////////////////
+    	if (RT == 0.0 && !intakeStateFlipped)
+    	{
+    		intakeState = !intakeState;
+    		intakeStateFlipped = 1;
+    	}
+    	if (RT == 1.0 && intakeState == 1)
+		{
+			sigmaIntake1.Set(frc::DoubleSolenoid::Value::kReverse);
+			intakeStateFlipped = 0;
+		}
+		else if (RT == 1.0 && intakeState == 0)
+		{
+			sigmaIntake1.Set(frc::DoubleSolenoid::Value::kForward);
+			intakeStateFlipped = 0;
+		}
 	}
 
 	void TeleopPeriodic() {
 
-		//following motors (slave motors)
-		left2->Follow(*leftDrive);
-		left3->Follow(*leftDrive);
-		right2->Follow(*rightDrive);
-		right3->Follow(*rightDrive);
-		lift2->Follow(*lift1);
-		lift2->SetInverted(true);
+		liftEncoder1 = 0;
+		liftEncoder2 = 0;
 
 		//xbox controller values
-		A = (controller->GetRawButtonPressed(1));
+		A = (controller->GetRawButton(1));
 		X = (controller->GetRawButtonPressed(3));
-		Y = (controller->GetRawButtonPressed(4));
+		Y = (controller->GetRawButton(4));
 		B = (controller->GetRawButton(2));
-		//RB = (controller->GetRawButtonPressed(6));
+	//	RB = (controller->GetRawButton(6));
 		RB = (controller->GetRawButton(6));
-		LB = (controller->GetRawButtonPressed(5));
-		LS = (controller->GetRawButton(9));
+		LB = (controller->GetRawButton(5));
+	//	LS = (controller->GetRawButton(9));
 		LT = (controller->GetRawAxis(2));
 		RT = (controller->GetRawAxis(3));
 		LY = controller->GetY(GenericHID::JoystickHand(0));
 		RY = controller->GetY(GenericHID::JoystickHand(1));
+		DP = controller->GetPOV(0);
 
-		leftDriveValue = -LY;
-        rightDriveValue = RY;
 
-        //drive train values
-		leftDrive->Set(leftDriveValue); //add follow command
-		rightDrive->Set(rightDriveValue); //add follow command
+		leftDriveValue = LY; //switch back later
+        rightDriveValue = -RY;
 
-		int pulseWidthPosLeft = leftDrive->GetSensorCollection().GetPulseWidthPosition();
-		int pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
-		printf("L-  ");
-		printf("%i", pulseWidthPosLeft);
-		printf("R-  ");
-		printf("\n");
-		printf("%i", pulseWidthPosRight);
-		printf("\n");
-		printf("\n");
-		
 
-		//limelight vision code
-    	tx = table->GetNumber("tx", 0.0);
-    	ty = table->GetNumber("ty", 0.0);
-		tv = table->GetNumber("tv", 0.0);
-    	ta = table->GetNumber("ta", 0.0);
-
-    	if (B)
-    	{
-    		/*
-    		 * if the target is found: robot turns and moves towards the object
-    		 * if target area is greater than 85%: robot will stop
-    		 * if no target is found: do nothing
-    		 */
-
-    		if(tv == 1) //If a target is detected
-			{
-
-				if(ta < 75)
-				{
-
-					float heading_error = tx;
-					float steering_adjust = 0.0f;
-
-	    			speed = (-ta/100) + 1;
-	               	/*
-	    			if (tx > 0.0)
-					{
-						leftDrive->Set(speed);
-					}
-					else if (tx < 0.0)
-					{
-						leftDrive->Set(-speed);
-					}
-	               	*/
-
-					//motor speed does not go over 1
-	    			if (tx > 0.0)
-	    			{
-	    				steering_adjust = Kp * heading_error - min_command;
-	    			}
-	    			else if (tx < 0.0)
-	    			{
-	    				steering_adjust = Kp * heading_error + min_command;
-	    			}
-
-	    			leftDrive->Set(leftDrive->Get() + steering_adjust);
-	    			rightDrive->Set(rightDrive->Get() + steering_adjust);
-
-				} //sets distance limit using 'ta'
-			} //closes 'if target detected' loop
-    	} //closes vision function
-
-    	if(liftSwitch1->Get())
-    	{
-    		printf("Bottom\n");
-    	}
-    	if(liftSwitch2->Get())
-    	{
-    		printf("Middle\n");
-    	}
-    	if(liftSwitch3->Get())
-    	{
-    		printf("Top\n");
-    	}
-
-    	//Elevator code
-    	if(A){nextState = STATE1;}
-    	if(X){nextState = STATE2;}
-    	if(Y){nextState = STATE3;}
-
-    	switch (liftState)
-    	{
-    	    case STATE1:
-    	    	//printf("State1 \n");
-				if(nextState == STATE1)
-				{
-					lift1->Set(0.0);
-				}
-				else
-				{
-					lift1->Set(0.4);
-					liftState = STATE1_5;
-				}
-				break;
-
-			case STATE1_5:
-				//printf("State1_5 \n");
-				if(nextState <= STATE1)
-				{
-					lift1->Set(-0.4);
-
-					if(liftSwitch1->Get())
-					{
-						liftState = STATE1;
-					}
-				}
-
-				if(nextState >= STATE2)
-				{
-					lift1->Set(0.4);
-
-					if(liftSwitch2->Get())
-					{
-						liftState = STATE2;
-					}
-				}
-				break;
-
-			case STATE2:
-				//printf("State2 \n");
-				if(nextState == STATE2)
-				{
-					lift1->Set(0.0);
-				}
-				else if(nextState >= STATE3)
-				{
-					lift1->Set(0.4);
-					liftState = STATE2_5;
-				}
-				else if(nextState <= STATE1)
-				{
-					lift1->Set(-0.4);
-					liftState = STATE1_5;
-				}
-
-				break;
-
-			case STATE2_5:
-				//printf("State2_5 \n");
-				if(nextState <= STATE2)
-				{
-					lift1->Set(-0.4);
-
-					if(liftSwitch2->Get())
-					{
-						liftState = STATE2;
-					}
-				}
-
-				if(nextState >= STATE3)
-				{
-					lift1->Set(0.4);
-
-					if(liftSwitch3->Get())
-					{
-						liftState = STATE3;
-					}
-				}
-				break;
-
-			case STATE3:
-				//printf("State3 \n");
-				if(nextState == STATE3)
-				{
-					lift1->Set(0.0);
-				}
-
-		        if(nextState <= STATE2)
-				{
-					lift1->Set(-0.4);
-					liftState = STATE2_5;
-				}
-		    	break;
-		} //end of elevator code
-
-    	//Pneumatics Code
-    	compressor->SetClosedLoopControl(true);
-
-/*
-    	if(RB && (state_RB == false))
-    	{
-    		sigmaGift.Set(frc::DoubleSolenoid::Value::kForward);
-    		state_RB = !state_RB;
-    	}
-    	else if(RB && (state_RB == true))
-    	{
-    		sigmaGift.Set(frc::DoubleSolenoid::Value::kReverse);
-    		state_RB = !state_RB;
-    	}
-*/
-
-    	//
-		if(RB == true){
-			sigmaShift.Set(frc::DoubleSolenoid::Value::kForward);
-
-		}
-		else{
-			sigmaShift.Set(frc::DoubleSolenoid::Value::kReverse);
-		}
-
+		processMotors();
+        processPneumatics();
 
 	}
+
 	void TestPeriodic() {
 
 	}
