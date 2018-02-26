@@ -31,6 +31,8 @@ class Robot : public frc::IterativeRobot {
 public:
 
 	std::string gamedata;
+	char switchSide;
+	char scaleSide;
 //	std::string _sb;
 //	limelight network table declarations
 
@@ -203,34 +205,78 @@ public:
 		return ret;
 	}
 
-	void sideAutonomous(){
-		/*
-		 * rInvert is is either a -1 or a +1
-		 * if gameData[0] == R ..... rInvert = -1
-		 * if gameData[0] == L ..... rInvert = +1
-		 */
-		/*
-		 * move forward X feet
-		 * turn rInvert * 90
-		 * move forward X feet
-		 * shoot cube
-		 */
+        ////////////////////////////////////////////////////////
+    ////////Try to put into separate class/header file later////////
+        ////////////////////////////////////////////////////////
+    void shortSideAuto(){
+            /* move forward X feet
+             * turn rInvert * 90
+             * moveStraight X feet
+             * shoot cube
+             */
+    }
+    void longSideAuto(){
+        /* move forward X feet
+         * turn rInvert * 90
+         * moveStraight X feet
+         * turn rInvert * 90
+         * moveStraight X feet
+         * turn rInvert * 90
+         * moveStraight X feet
+         * shoot cube
+         */
+    }
+    
+	void leftAutonomous()
+	{
+		if(switchSide == 'L')
+		{
+		    shortSideAuto();
+		}
+		else if(switchSide == 'R')
+		{
+		    longSideAuto();
+		}
 	}
+	
+	void rightAutonomous()
+	{
+        if(switchSide == 'R')
+		{
+		    shortSideAuto();
+		}
+		else if(switchSide == 'L')
+		{
+		    longSideAuto();
+		}
+	}
+	
 	void centerAutonomous(){
-
+        if(switchSide == 'R')
+		{
+		    /* move forward X feet
+             * turn rInvert * 90
+             * moveStraight X feet
+             * shoot cube
+             */
+		}
+		else if(switchSide == 'L')
+		{
+		    longSideAuto();
+		}
 	}
-	/*void rightAutonomous(){
-
-	}*/
+	
 	void AutonomousInit() override {
 	//	std::cout << "Auto Start!";
 		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
-
-		if(gamedata[0] == 'L')
+		switchSide = gamedata[0];
+		scaleSide = gamedata[1];
+		
+		if(leftAutoChosen)
 		{
 			rInvert = 1;
 		}
-		else if (gamedata[0] == 'R')
+		else if(rightAutoChosen)
 		{
 			rInvert = -1;
 		}
