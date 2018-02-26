@@ -226,7 +226,7 @@ public:
          * shoot cube
          */
     }
-    
+
 	void leftAutonomous()
 	{
 		if(switchSide == 'L')
@@ -238,7 +238,7 @@ public:
 		    longSideAuto();
 		}
 	}
-	
+
 	void rightAutonomous()
 	{
         if(switchSide == 'R')
@@ -250,28 +250,33 @@ public:
 		    longSideAuto();
 		}
 	}
-	
+
+	/*
 	void centerAutonomous(){
         if(switchSide == 'R')
 		{
-		    /* move forward X feet
-             * turn rInvert * 90
-             * moveStraight X feet
-             * shoot cube
-             */
+		//  move forward X feet
+        //  turn rInvert * 90
+        //  moveStraight X feet
+		//	shoot cube
+
 		}
 		else if(switchSide == 'L')
 		{
 		    longSideAuto();
 		}
 	}
-	
+	*/
+
 	void AutonomousInit() override {
 	//	std::cout << "Auto Start!";
 		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
 		switchSide = gamedata[0];
 		scaleSide = gamedata[1];
-		
+
+		rInvert = 1; //chooses the left side autonomous
+
+		/*
 		if(leftAutoChosen)
 		{
 			rInvert = 1;
@@ -280,6 +285,7 @@ public:
 		{
 			rInvert = -1;
 		}
+		*/
 	}
 
 	void AutonomousPeriodic() {
@@ -319,10 +325,10 @@ public:
 
 				}
 				break;
-			
+
 			case 3 :
 
-				
+
 				status = GyroTurn(-90);
 				if (status == 1)
 				{
