@@ -349,8 +349,8 @@ public:
 		scaleSide = gamedata[1];
 
 		leftAutonomous();
-
 		rInvert = 1; //chooses the left side autonomous
+		//rInvert = -1; //chooses the right side autonomous
 /*
 		if(m_autoSelected == leftAuto)
 		{
