@@ -70,7 +70,7 @@ public:
 
 	WPI_TalonSRX *intakeLift = new WPI_TalonSRX(8);
 
-	WPI_TalonSRX *firstElev1 = new WPI_TalonSRX(7);
+	WPI_TalonSRX *firstElev1 = new WPI_TalonSRX(37);
 	WPI_TalonSRX *secondElev = new WPI_TalonSRX(9);
 	WPI_VictorSPX *firstElev2 = new WPI_VictorSPX(10);
 
@@ -134,7 +134,7 @@ public:
 	bool moveStraight(int inches, double speed) {
 		bool ret = 0;
 
-		printf("%i as \n", moveState);
+		//printf("%i as \n", moveState);
 
 		switch (moveState)
 		{
@@ -173,7 +173,7 @@ public:
 
 		bool ret = 0;
 
-		printf("%i rg \n", resetGyro);
+		//printf("%i rg \n", resetGyro);
 
 		switch (resetGyro) {
 
@@ -214,6 +214,44 @@ public:
              * moveStraight X feet
              * shoot cube
              */
+    	bool status = 0;
+		switch (autoState)
+		{
+			case 0 :
+
+				status = moveStraight(144, 0.5);
+				if(status == 1)
+				{
+					autoState = 1;
+				}
+				break;
+
+			case 1 :
+
+				status = GyroTurn(rInvert * 90);
+				if (status == 1)
+				{
+					autoState = 2;
+				}
+				break;
+
+			case 2 :
+				status = moveStraight(12, 0.5);
+				if (status == 1)
+				{
+					autoState = 3;
+				}
+				break;
+
+			case 3 :
+				//spit out cube(in-take)
+				if (status == 1)
+				{
+					autoState = 4;
+				}
+				break;
+		}
+
     }
     void longSideAuto(){
         /* move forward X feet
@@ -225,6 +263,42 @@ public:
          * moveStraight X feet
          * shoot cube
          */
+    	bool status = 0;
+		switch (autoState)
+		{
+			case 0 :
+				status = moveStraight(144, 0.9);
+				if(status == 1)
+				{
+					autoState = 1;
+				}
+				break;
+
+			case 1 :
+				status = GyroTurn(rInvert * 90);
+				if (status == 1)
+				{
+					autoState = 2;
+				}
+				break;
+
+			case 2 :
+				status = moveStraight(12, 0.5);
+				if (status == 1)
+				{
+					autoState = 3;
+				}
+				break;
+
+			case 3 :
+				//spit out cube(in-take)
+				if (status == 1)
+				{
+					autoState = 4;
+				}
+				break;
+
+		}
     }
 
 	void leftAutonomous()
@@ -251,7 +325,7 @@ public:
 		}
 	}
 
-	/*
+
 	void centerAutonomous(){
         if(switchSide == 'R')
 		{
@@ -259,23 +333,38 @@ public:
         //  turn rInvert * 90
         //  moveStraight X feet
 		//	shoot cube
-
 		}
 		else if(switchSide == 'L')
 		{
 		    longSideAuto();
 		}
 	}
-	*/
+
 
 	void AutonomousInit() override {
-	//	std::cout << "Auto Start!";
+		//std::cout << "Auto Start!";
 		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
+
 		switchSide = gamedata[0];
 		scaleSide = gamedata[1];
 
-		rInvert = 1; //chooses the left side autonomous
+		leftAutonomous();
 
+		rInvert = 1; //chooses the left side autonomous
+/*
+		if(m_autoSelected == leftAuto)
+		{
+			leftAutonomous();
+		}
+		else if(m_autoSelected == rightAuto)
+		{
+			rightAutonomous();
+		}
+		else if(m_autoSelected == centerAuto)
+		{
+			centerAutonomous();
+		}
+*/
 		/*
 		if(leftAutoChosen)
 		{
@@ -289,12 +378,27 @@ public:
 	}
 
 	void AutonomousPeriodic() {
-
-		bool status = 0;
+		shortSideAuto();
+		//printf("%i" ,pulseWidthPosRight);
+		/*
+  		if(m_autoSelected == leftAuto)
+		{
+			// Left Auto Loop
+		}
+		else if(m_autoSelected == rightAuto)
+		{
+			// Right Auto Loop
+		}
+		else if(m_autoSelected == centerAuto)
+		{
+			// Center Auto Loop
+		}
+*/
 
 		printf("%i rs \n", autoState);
 
-
+		/*
+		bool status = 0;
 		switch (autoState)
 		{
 			case 0 :
@@ -328,14 +432,13 @@ public:
 
 			case 3 :
 
-
 				status = GyroTurn(-90);
 				if (status == 1)
 				{
 					autoState = 4;
 				}
 				break;
-			/*
+
 			case 4 :
 				status = moveStraight(120, 0.5);
 				if(status == 1)
@@ -343,7 +446,6 @@ public:
 					autoState = 5;
 				}
 				break;
-
 			case 5 :
 				status = GyroTurn(-90);
 				if (status == 1)
@@ -351,7 +453,6 @@ public:
 					autoState = 6;
 				}
 				break;
-
 			case 6 :
 				status = moveStraight(72, 0.5);
 				if(status == 1)
@@ -366,8 +467,9 @@ public:
 					autoState = 8;
 				}
 				break;
-			*/
 		}
+		*/
+
 	}
 
 	void TeleopInit() {
@@ -488,7 +590,7 @@ public:
 		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
 		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
 
-		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+		//printf("%d      %d\n", firstEncoder1, secondEncoder1);
 
 		if(firstEncoder1 < 9600)
 		{
@@ -514,7 +616,7 @@ public:
 		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
 		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
 
-		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+		//printf("%d    %d\n", firstEncoder1, secondEncoder1);
 
 
 		if (firstEncoder1 > -20000)
@@ -609,7 +711,9 @@ public:
 
 		leftDriveValue = LY; //switch back later
         rightDriveValue = -RY;
+		pulseWidthPosLeft = leftDrive->GetSensorCollection().GetPulseWidthPosition();
 
+		//printf("%i" ,pulseWidthPosLeft);
 
 		processMotors();
         processPneumatics();
@@ -623,10 +727,10 @@ public:
 private:
 	frc::LiveWindow& m_lw = *LiveWindow::GetInstance();
 	frc::SendableChooser<std::string> m_chooser;
-	const std::string kAutoNameDefault = "Default";
-	const std::string kAutoNameCustom = "My Auto";
+	const std::string leftAuto = "Left Auto";
+	const std::string rightAuto = "Right Auto";
+	const std::string centerAuto = "Center Auto";
 	std::string m_autoSelected;
-
 };
 
 START_ROBOT_CLASS(Robot)
