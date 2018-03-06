@@ -123,6 +123,12 @@ public:
 
 
 	void RobotInit() {
+		m_chooser.AddDefault(kAutoNameDefault, kAutoNameDefault);
+		m_chooser.AddObject(leftAuto, leftAuto);
+		m_chooser.AddObject(centerAuto, centerAuto);
+		m_chooser.AddObject(rightAuto, rightAuto);
+		frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
+
 		Gyro->Calibrate();
 	}
 
@@ -141,7 +147,7 @@ public:
 			case 0 :
 				pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
 				targetPulseWidthPosRight = pulseWidthPosRight + (inches * TICKS_PER_INCH);
-				//printf("%i   %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
+				//printf("%i    %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
 				moveState = 1;
 				break;
 
@@ -208,13 +214,8 @@ public:
         ////////////////////////////////////////////////////////
     ////////Try to put into separate class/header file later////////
         ////////////////////////////////////////////////////////
-    void shortSideAuto(){
-            /* move forward X feet
-             * turn rInvert * 90
-             * moveStraight X feet
-             * shoot cube
-             */
-    	bool status = 0;
+	void shortSideAuto(){
+		bool status = 0;
 		switch (autoState)
 		{
 			case 0 :
@@ -254,20 +255,11 @@ public:
 
     }
     void longSideAuto(){
-        /* move forward X feet
-         * turn rInvert * 90
-         * moveStraight X feet
-         * turn rInvert * 90
-         * moveStraight X feet
-         * turn rInvert * 90
-         * moveStraight X feet
-         * shoot cube
-         */
     	bool status = 0;
 		switch (autoState)
 		{
 			case 0 :
-				status = moveStraight(144, 0.9);
+				status = moveStraight(144, 0.8);
 				if(status == 1)
 				{
 					autoState = 1;
@@ -283,7 +275,7 @@ public:
 				break;
 
 			case 2 :
-				status = moveStraight(12, 0.5);
+				status = moveStraight(12, 0.8);
 				if (status == 1)
 				{
 					autoState = 3;
@@ -297,7 +289,6 @@ public:
 					autoState = 4;
 				}
 				break;
-
 		}
     }
 
@@ -312,7 +303,6 @@ public:
 		    longSideAuto();
 		}
 	}
-
 	void rightAutonomous()
 	{
         if(switchSide == 'R')
@@ -324,8 +314,6 @@ public:
 		    longSideAuto();
 		}
 	}
-
-
 	void centerAutonomous(){
         if(switchSide == 'R')
 		{
@@ -336,22 +324,32 @@ public:
 		}
 		else if(switchSide == 'L')
 		{
-		    longSideAuto();
+		//	longSideAuto();
 		}
 	}
 
-
 	void AutonomousInit() override {
-		//std::cout << "Auto Start!";
+		std::cout << "Auto Start!";
+
+		m_autoSelected = m_chooser.GetSelected();
 		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
 
 		switchSide = gamedata[0];
 		scaleSide = gamedata[1];
 
-		leftAutonomous();
-		rInvert = 1; //chooses the left side autonomous
-		//rInvert = -1; //chooses the right side autonomous
-/*
+		if(m_autoSelected == leftAuto)
+		{
+			rInvert = 1;
+		}
+		else if(m_autoSelected == rightAuto)
+		{
+			rInvert = -1;
+		}
+	}
+
+	void AutonomousPeriodic() {
+		printf("%i rs \n", autoState);
+
 		if(m_autoSelected == leftAuto)
 		{
 			leftAutonomous();
@@ -364,111 +362,6 @@ public:
 		{
 			centerAutonomous();
 		}
-*/
-		/*
-		if(leftAutoChosen)
-		{
-			rInvert = 1;
-		}
-		else if(rightAutoChosen)
-		{
-			rInvert = -1;
-		}
-		*/
-	}
-
-	void AutonomousPeriodic() {
-		shortSideAuto();
-		//printf("%i" ,pulseWidthPosRight);
-		/*
-  		if(m_autoSelected == leftAuto)
-		{
-			// Left Auto Loop
-		}
-		else if(m_autoSelected == rightAuto)
-		{
-			// Right Auto Loop
-		}
-		else if(m_autoSelected == centerAuto)
-		{
-			// Center Auto Loop
-		}
-*/
-
-		printf("%i rs \n", autoState);
-
-		/*
-		bool status = 0;
-		switch (autoState)
-		{
-			case 0 :
-
-				status = moveStraight(120, 0.5);
-				if(status == 1)
-				{
-					autoState = 1;
-				}
-				break;
-
-
-			case 1 :
-
-				status = GyroTurn(rInvert * 90);
-				if (status == 1)
-				{
-					autoState = 2;
-				}
-				break;
-
-			case 2 :
-
-				status = moveStraight(72, 0.5);
-				if(status == 1)
-				{
-					autoState = 3;
-
-				}
-				break;
-
-			case 3 :
-
-				status = GyroTurn(-90);
-				if (status == 1)
-				{
-					autoState = 4;
-				}
-				break;
-
-			case 4 :
-				status = moveStraight(120, 0.5);
-				if(status == 1)
-				{
-					autoState = 5;
-				}
-				break;
-			case 5 :
-				status = GyroTurn(-90);
-				if (status == 1)
-				{
-					autoState = 6;
-				}
-				break;
-			case 6 :
-				status = moveStraight(72, 0.5);
-				if(status == 1)
-				{
-					autoState = 7;
-				}
-				break;
-			case 7 :
-				status = GyroTurn(-90);
-				if (status == 1)
-				{
-					autoState = 8;
-				}
-				break;
-		}
-		*/
 
 	}
 
@@ -727,6 +620,7 @@ public:
 private:
 	frc::LiveWindow& m_lw = *LiveWindow::GetInstance();
 	frc::SendableChooser<std::string> m_chooser;
+	const std::string kAutoNameDefault = "!Do Nothing!";
 	const std::string leftAuto = "Left Auto";
 	const std::string rightAuto = "Right Auto";
 	const std::string centerAuto = "Center Auto";
