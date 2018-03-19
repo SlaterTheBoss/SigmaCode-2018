@@ -67,7 +67,7 @@ public:
 	WPI_VictorSPX * right2 = new WPI_VictorSPX(5);
 	WPI_VictorSPX * right3 = new WPI_VictorSPX(6);
 
-	WPI_TalonSRX *intakeLift = new WPI_TalonSRX(8);
+	WPI_TalonSRX *intakePivot = new WPI_TalonSRX(8);
 
 	WPI_TalonSRX *firstElev1 = new WPI_TalonSRX(7);
 	WPI_TalonSRX *secondElev = new WPI_TalonSRX(9);
@@ -83,11 +83,11 @@ public:
 	XboxController * controller = new XboxController(0);
 	bool X;
 	bool A;
-    bool Y;
+	bool Y;
 	bool B;
 	bool RB;
 	bool LB;
-//	bool LS;
+	bool LS;
 	double LT;
 	double RT;
 	double LY;
@@ -112,13 +112,13 @@ public:
     double leftDriveValue;
 	double rightDriveValue;
 
-	double rightOffset = 0.90;
+	double rightOffset = 0.95;
 
 	int rInvert = 0;
 	int cInvert = 0;
 	int autoState = 0;
 	int moveState = 0;
-
+	int baseCurrent;
 	int targetPulseWidthPosRight = 0;
 
 
@@ -158,6 +158,12 @@ public:
 				break;
 
 			case 2 :
+				if (18000 < pulseWidthPosRight && pulseWidthPosRight < 21000)
+				{
+					baseCurrent = leftDrive->GetOutputCurrent();
+					printf("%i as \n", baseCurrent);
+				}
+
 				if (pulseWidthPosRight < targetPulseWidthPosRight)
 				{
 					pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
@@ -184,29 +190,29 @@ public:
 
 		switch (resetGyro) {
 
-		case 0 :
-			Gyro->Reset();
-			resetGyro = 1;
-			break;
+			case 0 :
+				Gyro->Reset();
+				resetGyro = 1;
+				break;
 
-		case 1 :
-			double GyroAngle = Gyro->GetAngle();
+			case 1 :
+				double GyroAngle = Gyro->GetAngle();
 
-			if((angle + 0.47) > GyroAngle && (angle - 0.47) < GyroAngle) // When Gyro Angle reaches the range it stops
-			{
-				sigmaDrive(0.0, 0.0);
-				resetGyro = 0;
-				ret = 1;
-			}
-			else if((angle - 0.77) > GyroAngle) // When GyroAngle is Less it turns right
-			{
-				sigmaDrive(-0.4, -0.4);
-			}
-			else if((angle + 0.77) < GyroAngle) // When GyroAngle is Greater it turns left
-			{
-				sigmaDrive(0.4, 0.4);
-			}
-			break;
+				if((angle + 0.47) > GyroAngle && (angle - 0.47) < GyroAngle) // When Gyro Angle reaches the range it stops
+				{
+					sigmaDrive(0.0, 0.0);
+					resetGyro = 0;
+					ret = 1;
+				}
+				else if((angle - 0.77) > GyroAngle) // When GyroAngle is Less it turns right
+				{
+					sigmaDrive(-0.4, -0.4);
+				}
+				else if((angle + 0.77) < GyroAngle) // When GyroAngle is Greater it turns left
+				{
+					sigmaDrive(0.4, 0.4);
+				}
+				break;
 		}
 
 		return ret;
@@ -220,7 +226,7 @@ public:
 		switch (autoState)
 		{
 			case 0 :
-				status = moveStraight(144, 0.65);
+				status = moveStraight(152, 0.65);
 				if(status == 1)
 				{
 					autoState = 1;
@@ -229,24 +235,30 @@ public:
 
 			case 1 :
 				status = GyroTurn(rInvert * 90);
-				if (status == 1)
+				if(status == 1)
 				{
 					autoState = 2;
 				}
 				break;
 
 			case 2 :
-				status = moveStraight(12, 0.65);
-				if (status == 1)
+				status = moveStraight(15, 0.65);
+				if(status == 1)
 				{
 					autoState = 3;
 				}
 				break;
 
 			case 3 :
-				intake1->Set(0.60);
-				intake2->Set(-0.60);
+				sigmaDrive(-0.25, 0.25);
+				autoState = 4;
 				break;
+
+			case 4 :
+				intake1->Set(-1.0);
+				intake2->Set(1.0);
+				break;
+
 		}
 
     }
@@ -255,7 +267,7 @@ public:
 		switch (autoState)
 		{
 			case 0 :
-				status = moveStraight(180, 0.65);
+				status = moveStraight(213, 0.75);
 				if(status == 1)
 				{
 					autoState = 1;
@@ -271,7 +283,7 @@ public:
 				break;
 
 			case 2 :
-				status = moveStraight(216, 0.65);
+				status = moveStraight(154, 0.65);
 				if (status == 1)
 				{
 					autoState = 3;
@@ -287,7 +299,7 @@ public:
 				break;
 
 			case 4 :
-				status = moveStraight(48, 0.65);
+				status = moveStraight(12, 0.65);
 				if (status == 1)
 				{
 					autoState = 5;
@@ -295,24 +307,8 @@ public:
 				break;
 
 			case 5 :
-				status = GyroTurn(rInvert * 90);
-				if (status == 1)
-				{
-					autoState = 6;
-				}
-				break;
-
-			case 6 :
-				status = moveStraight(7, 0.65);
-				if (status == 1)
-				{
-					autoState = 5;
-				}
-				break;
-
-			case 7 :
-				intake1->Set(0.60);
-				intake2->Set(-0.60);
+				intake1->Set(-1.0);
+				intake2->Set(1.0);
 				break;
 		}
     }
@@ -344,7 +340,7 @@ public:
 		switch (autoState)
 		{
 			case 0 :
-				status = moveStraight(108, 0.65);
+				status = moveStraight(60, 0.65);
 				if(status == 1)
 				{
 					autoState = 1;
@@ -360,7 +356,7 @@ public:
 				break;
 
 			case 2 :
-				status = moveStraight(12, 0.65);
+				status = moveStraight(40, 0.65);
 				if (status == 1)
 				{
 					autoState = 3;
@@ -376,7 +372,7 @@ public:
 				break;
 
 			case 4 :
-				status = moveStraight(12, 0.65);
+				status = moveStraight(65, 0.65);
 				if (status == 1)
 				{
 					autoState = 5;
@@ -384,13 +380,26 @@ public:
 				break;
 
 			case 5 :
-				intake1->Set(0.60);
-				intake2->Set(-0.60);
+				intake1->Set(-1.0);
+				intake2->Set(1.0);
 				break;
 		}
 	}
+
 	void baseLineAuto(){
-		moveStraight(108, 0.65);
+		bool status = 0;
+
+		switch (autoState)
+		{
+			case 0 :
+				status = moveStraight(120, 0.65);
+
+				if(status == 1)
+				{
+					autoState = 1;
+				}
+				break;
+		}
 	}
 
 	void AutonomousInit() override {
@@ -407,7 +416,7 @@ public:
 	}
 
 	void AutonomousPeriodic() {
-		printf("%i rs \n", autoState);
+	//	printf("%i rs \n", autoState);
 
 		if(m_autoSelected == autoLine)
 		{
@@ -477,8 +486,8 @@ public:
 		/////////////////////////////////////
 		if (LB)
 		{
-			intake1->Set(0.60);
-			intake2->Set(-0.60);
+			intake1->Set(0.65);
+			intake2->Set(-0.65);
 		}
 		else if (RB)
 		{
@@ -495,55 +504,41 @@ public:
 		//////////////////////////////////////
 		/// intake lift motors
 		/////////////////////////////////////
+//		int pivotEncoder = intakePivot->GetSensorCollection().GetPulseWidthPosition();
+//		printf("Pivot = %d \n", pivotEncoder);
+
 		if (A) // down
 		{
-			intakeLift->Set(0.20);
-			armUp();
+			intakePivot->Set(0.20);
+	//		armUp();
 		}
-		else if (B) // up
+		else if (Y) // up
 		{
-			intakeLift->Set(-0.60);
-			armUp();
+			intakePivot->Set(-0.60);
+	//		armUp();
 		}
 		else
 		{
-			intakeLift->Set(-0.13);
+			intakePivot->Set(-0.13);
 		}
 
 		//////////////////////////////////////
-		/// second stage motor
+		/// elevator motors
 		/////////////////////////////////////
 		if (DP == 0)
 		{
-	//		secondElev->Set(-0.80);
 			liftAscend();
 		}
 		else if (DP == 180)
 		{
-	//		secondElev->Set(0.02);
 			liftDescend();
 		}
 		else
 		{
-			secondElev->Set(-0.09);
-			firstElev1->Set(0.025);
+			secondElev->Set(-0.07);
+			firstElev1->Set(0.04);
 		}
 
-		//////////////////////////////////////
-		/// first stage motor
-		/////////////////////////////////////
-		if (DP == 90)
-		{
-		//	firstElev1->Set(-0.30);
-		}
-		else if (DP == 270)
-		{
-//			firstElev1->Set(0.80);
-		}
-		else
-		{
-	//		firstElev1->Set(0.02);
-		}
 	}
 
 	void liftDescend() {
@@ -553,22 +548,29 @@ public:
 
 		printf("%d      %d\n", firstEncoder1, secondEncoder1);
 
-		if(firstEncoder1 < -3000) //9600 // more neg, goes up
+		if(firstEncoder1 < -1000) //9600 // more neg, goes up
 		{
-			firstElev1->Set(-0.40);
+			firstElev1->Set(-0.45);
+//			firstElev1->Set(-0.15);
 		}
-		else
+		else if(firstEncoder1 < 2100) //9600 // more neg, goes up
 		{
-			firstElev1->Set(0.02);
+//			firstElev1->Set(-0.45);
+			firstElev1->Set(-0.15);
 		}
 
-		if(secondEncoder1 > 3500) // more pos, goes up
+		else
+		{
+			firstElev1->Set(0.04);
+		}
+
+		if(secondEncoder1 > 5500) // more pos, goes up
 		{
 			secondElev->Set(0.001);
 		}
 		else
 		{
-			secondElev->Set(-0.09);
+			secondElev->Set(-0.07);
 		}
 
 	}
@@ -578,32 +580,31 @@ public:
 		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
 		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
 
-		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+		//printf("%d    %d\n", firstEncoder1, secondEncoder1);
 
-
-		if (firstEncoder1 > -32000) // more neg, goes up
+		if (firstEncoder1 > -25000) // more neg, goes up
 		{
 			firstElev1->Set(0.90);
 		}
 		else
 		{
-			firstElev1->Set(0.025);
+			firstElev1->Set(0.04);
 		}
 
-		if(secondEncoder1 < 31030) // more pos, goes up
+		if(secondEncoder1 < 28000) // more pos, goes up
 		{
 			secondElev->Set(-0.90);
 		}
 		else
 		{
-			secondElev->Set(-0.09);
+			secondElev->Set(-0.07);
 		}
 
 	}
 
 	void armUp()
 	{
-		int encoder = intakeLift->GetSensorCollection().GetPulseWidthPosition();
+		int encoder = intakePivot->GetSensorCollection().GetPulseWidthPosition();
 
 		printf("%d  \n", encoder);
 	}
@@ -613,7 +614,7 @@ public:
 		//////////////////////////////////////
 		/// elevator
 		/////////////////////////////////////
-		if (X)
+		if (LS)
 		{
 			if (sigmaLift.Get() == frc::DoubleSolenoid::Value::kForward)
 			{
@@ -670,7 +671,7 @@ public:
 	//	RB = (controller->GetRawButton(6));
 		RB = (controller->GetRawButton(6));
 		LB = (controller->GetRawButton(5));
-	//	LS = (controller->GetRawButton(9));
+		LS = (controller->GetRawButtonPressed(9));
 		LT = (controller->GetRawAxis(2));
 		RT = (controller->GetRawAxis(3));
 		LY = controller->GetY(GenericHID::JoystickHand(0));
@@ -686,7 +687,7 @@ public:
 
 		processMotors();
         processPneumatics();
-
+		processMotors();
 	}
 
 	void TestPeriodic() {
