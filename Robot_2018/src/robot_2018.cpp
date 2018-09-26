@@ -30,9 +30,10 @@
 class Robot : public frc::IterativeRobot {
 public:
 
-//	std::string gamedata;
-	std::string _sb;
-	//limelight network table declarations
+	std::string gamedata;
+
+//	std::string _sb;
+//	limelight network table declarations
 
 	std::shared_ptr<NetworkTable> table = NetworkTable::GetTable("limelight");
 
@@ -113,12 +114,22 @@ public:
 
 	double rightOffset = 0.90;
 
+	int rInvert = 0;
+	int cInvert = 0;
 	int autoState = 0;
-	int robotState = 0;
+	int moveState = 0;
+
 	int targetPulseWidthPosRight = 0;
 
 
 	void RobotInit() {
+		m_chooser.AddDefault(kAutoNameDefault, kAutoNameDefault);
+		m_chooser.AddObject(autoLine, autoLine);
+		m_chooser.AddObject(leftAuto, leftAuto);
+		m_chooser.AddObject(centerAuto, centerAuto);
+		m_chooser.AddObject(rightAuto, rightAuto);
+		frc::SmartDashboard::PutData("Auto Modes", &m_chooser);
+
 		Gyro->Calibrate();
 	}
 
@@ -130,20 +141,20 @@ public:
 	bool moveStraight(int inches, double speed) {
 		bool ret = 0;
 
-		printf("%i as \n", autoState);
+		//printf("%i as \n", moveState);
 
-		switch (autoState)
+		switch (moveState)
 		{
 			case 0 :
 				pulseWidthPosRight = rightDrive->GetSensorCollection().GetPulseWidthPosition();
 				targetPulseWidthPosRight = pulseWidthPosRight + (inches * TICKS_PER_INCH);
-				//printf("%i   %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
-				autoState = 1;
+				//printf("%i    %i\n\n", pulseWidthPosRight, targetPulseWidthPosRight);
+				moveState = 1;
 				break;
 
 			case 1 :
 				sigmaDrive(-speed, speed);
-				autoState = 2;
+				moveState = 2;
 				break;
 
 			case 2 :
@@ -155,7 +166,7 @@ public:
 				else
 				{
 					sigmaDrive(0, 0);
-					autoState = 0;
+					moveState = 0;
 					ret = true;
 				}
 
@@ -169,7 +180,7 @@ public:
 
 		bool ret = 0;
 
-		printf("%i rg \n", resetGyro);
+		//printf("%i rg \n", resetGyro);
 
 		switch (resetGyro) {
 
@@ -201,116 +212,230 @@ public:
 		return ret;
 	}
 
-	void AutonomousInit() override {
-	//	std::cout << "Auto Start!";
-	//	gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
-/*
-		if(gamedata[0] == 'L')
-		{
-			//leftDrive->Set(0.3);
-		}
-		else if (gamedata[0] == 'R')
-		{
-			//leftDrive->Set(1.0);
-		}
-		else
-		{
-
-		}
-*/
-
-      // leftDrive->Set(0.2);
-      // rightDrive->Set(0.2);
-	}
-
-	void AutonomousPeriodic() {
-
+        ////////////////////////////////////////////////////////
+    ////////Try to put into separate class/header file later////////
+        ////////////////////////////////////////////////////////
+	void shortSideAuto(){
 		bool status = 0;
-
-		printf("%i rs \n", robotState);
-
-		switch (robotState)
+		switch (autoState)
 		{
 			case 0 :
-
-				status = moveStraight(120, 0.5);
-
+				status = moveStraight(144, 0.65);
 				if(status == 1)
 				{
-					robotState = 1;
-
+					autoState = 1;
 				}
 				break;
 
-
 			case 1 :
-
-				status = GyroTurn(-90);
-
+				status = GyroTurn(rInvert * 90);
 				if (status == 1)
 				{
-					robotState = 2;
+					autoState = 2;
 				}
 				break;
 
 			case 2 :
-
-				status = moveStraight(72, 0.5);
-
-				if(status == 1)
+				status = moveStraight(12, 0.65);
+				if (status == 1)
 				{
-					robotState = 3;
-
+					autoState = 3;
 				}
 				break;
 
 			case 3 :
+				intake1->Set(0.60);
+				intake2->Set(-0.60);
+				break;
+		}
 
-				status = GyroTurn(-90);
+    }
+    void longSideAuto(){
+    	bool status = 0;
+		switch (autoState)
+		{
+			case 0 :
+				status = moveStraight(180, 0.65);
+				if(status == 1)
+				{
+					autoState = 1;
+				}
+				break;
 
+			case 1 :
+				status = GyroTurn(rInvert * 90);
 				if (status == 1)
 				{
-					robotState = 4;
+					autoState = 2;
+				}
+				break;
+
+			case 2 :
+				status = moveStraight(216, 0.65);
+				if (status == 1)
+				{
+					autoState = 3;
+				}
+				break;
+
+			case 3 :
+				status = GyroTurn(rInvert * 90);
+				if (status == 1)
+				{
+					autoState = 4;
 				}
 				break;
 
 			case 4 :
-				status = moveStraight(120, 0.5);
-
-				if(status == 1)
+				status = moveStraight(48, 0.65);
+				if (status == 1)
 				{
-					robotState = 5;
+					autoState = 5;
 				}
 				break;
 
 			case 5 :
-				status = GyroTurn(-90);
+				status = GyroTurn(rInvert * 90);
 				if (status == 1)
 				{
-					robotState = 6;
+					autoState = 6;
 				}
 				break;
 
 			case 6 :
-				status = moveStraight(72, 0.5);
-				if(status == 1)
-				{
-					robotState = 7;
-				}
-				break;
-			case 7 :
-				status = GyroTurn(-90);
+				status = moveStraight(7, 0.65);
 				if (status == 1)
 				{
-					robotState = 8;
+					autoState = 5;
 				}
 				break;
+
+			case 7 :
+				intake1->Set(0.60);
+				intake2->Set(-0.60);
+				break;
 		}
+    }
+
+	void leftAutoScore()
+	{
+		if(gamedata[0] == 'L')
+		{
+		    shortSideAuto();
+		}
+		else if(gamedata[0] == 'R')
+		{
+		    longSideAuto();
+		}
+	}
+	void rightAutoScore()
+	{
+        if(gamedata[0] == 'R')
+		{
+		    shortSideAuto();
+		}
+		else if(gamedata[0] == 'L')
+		{
+		    longSideAuto();
+		}
+	}
+	void centerAutoScore(){
+		bool status = 0;
+		switch (autoState)
+		{
+			case 0 :
+				status = moveStraight(108, 0.65);
+				if(status == 1)
+				{
+					autoState = 1;
+				}
+				break;
+
+			case 1 :
+				status = GyroTurn(cInvert * -90);
+				if (status == 1)
+				{
+					autoState = 2;
+				}
+				break;
+
+			case 2 :
+				status = moveStraight(12, 0.65);
+				if (status == 1)
+				{
+					autoState = 3;
+				}
+				break;
+
+			case 3 :
+				status = GyroTurn(cInvert * 90);
+				if (status == 1)
+				{
+					autoState = 4;
+				}
+				break;
+
+			case 4 :
+				status = moveStraight(12, 0.65);
+				if (status == 1)
+				{
+					autoState = 5;
+				}
+				break;
+
+			case 5 :
+				intake1->Set(0.60);
+				intake2->Set(-0.60);
+				break;
+		}
+	}
+	void baseLineAuto(){
+		moveStraight(108, 0.65);
+	}
+
+	void AutonomousInit() override {
+		std::cout << "Auto Start!";
+
+		m_autoSelected = m_chooser.GetSelected();
+		gamedata = frc::DriverStation::GetInstance().GetGameSpecificMessage();
+
+		if(m_autoSelected == leftAuto){rInvert = 1;}
+		else if(m_autoSelected == rightAuto){rInvert = -1;}
+
+		if(gamedata[0] == 'L'){cInvert = 1;}
+		else if(gamedata[0] == 'R'){cInvert = -1;}
+	}
+
+	void AutonomousPeriodic() {
+		printf("%i rs \n", autoState);
+
+		if(m_autoSelected == autoLine)
+		{
+			baseLineAuto();
+		}
+		else if(m_autoSelected == leftAuto)
+		{
+			leftAutoScore();
+		}
+		else if(m_autoSelected == rightAuto)
+		{
+			rightAutoScore();
+		}
+		else if(m_autoSelected == centerAuto)
+		{
+			centerAutoScore();
+		}
+
 	}
 
 	void TeleopInit() {
 		rightDrive->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 0);
 		leftDrive->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 0);
+
+		intake1->Set(0.0);
+		intake2->Set(0.0);
+
+		sigmaDrive(0.0, 0.0);
 
 		// second elev stage
 		firstElev2->SetInverted(true);
@@ -326,8 +451,8 @@ public:
 
 	//	intake2->SetInverted(true);
 
-//		firstLift2->Follow(*firstLift); //elevator 1
-//		firstLift2->SetInverted(true);
+	//	firstLift2->Follow(*firstLift); //elevator 1
+	//	firstLift2->SetInverted(true);
 
 		liftEncoderMax1 = 0;
 		liftEncoderMin1 = 0;
@@ -339,6 +464,9 @@ public:
 
 	void processMotors()
 	{
+		SmartDashboard::PutNumber("Left Joystick", leftDriveValue);
+		SmartDashboard::PutNumber("Right Joystick", rightDriveValue);
+
 		//////////////////////////////////////
 		/// drivetrain motors
 		/////////////////////////////////////
@@ -359,20 +487,23 @@ public:
 		}
 		else
 		{
-			intake1->Set(0.0);
-			intake2->Set(0.0);
+			intake1->Set(0.10);
+			intake2->Set(-0.10);
 		}
+
 
 		//////////////////////////////////////
 		/// intake lift motors
 		/////////////////////////////////////
-		if (A)
+		if (A) // down
 		{
-			intakeLift->Set(0.10);
+			intakeLift->Set(0.20);
+			armUp();
 		}
-		else if (B)
+		else if (B) // up
 		{
 			intakeLift->Set(-0.60);
+			armUp();
 		}
 		else
 		{
@@ -413,9 +544,6 @@ public:
 		{
 	//		firstElev1->Set(0.02);
 		}
-
-
-
 	}
 
 	void liftDescend() {
@@ -423,25 +551,26 @@ public:
 		int firstEncoder1 = firstElev1->GetSensorCollection().GetPulseWidthPosition();
 		int secondEncoder1 = secondElev->GetSensorCollection().GetPulseWidthPosition();
 
-		printf("%d    %d\n", firstEncoder1, secondEncoder1);
+		printf("%d      %d\n", firstEncoder1, secondEncoder1);
 
-		if(firstEncoder1 < 9600)
+		if(firstEncoder1 < -3000) //9600 // more neg, goes up
 		{
-			firstElev1->Set(-0.50);
+			firstElev1->Set(-0.40);
 		}
 		else
 		{
 			firstElev1->Set(0.02);
 		}
 
-		if(secondEncoder1 > 4500)
+		if(secondEncoder1 > 3500) // more pos, goes up
 		{
-			secondElev->Set(0.02);
+			secondElev->Set(0.001);
 		}
 		else
 		{
 			secondElev->Set(-0.09);
 		}
+
 	}
 
 	void liftAscend() {
@@ -452,25 +581,32 @@ public:
 		printf("%d    %d\n", firstEncoder1, secondEncoder1);
 
 
-		if (firstEncoder1 > -20000)
+		if (firstEncoder1 > -32000) // more neg, goes up
 		{
-			firstElev1->Set(0.80);
+			firstElev1->Set(0.90);
 		}
 		else
 		{
 			firstElev1->Set(0.025);
 		}
 
-		if(secondEncoder1 < 28030)
+		if(secondEncoder1 < 31030) // more pos, goes up
 		{
-			secondElev->Set(-0.80);
+			secondElev->Set(-0.90);
 		}
 		else
 		{
 			secondElev->Set(-0.09);
 		}
+
 	}
 
+	void armUp()
+	{
+		int encoder = intakeLift->GetSensorCollection().GetPulseWidthPosition();
+
+		printf("%d  \n", encoder);
+	}
 
 	void processPneumatics()
 	{
@@ -544,7 +680,9 @@ public:
 
 		leftDriveValue = LY; //switch back later
         rightDriveValue = -RY;
+		pulseWidthPosLeft = leftDrive->GetSensorCollection().GetPulseWidthPosition();
 
+		//printf("%i" ,pulseWidthPosLeft);
 
 		processMotors();
         processPneumatics();
@@ -558,10 +696,12 @@ public:
 private:
 	frc::LiveWindow& m_lw = *LiveWindow::GetInstance();
 	frc::SendableChooser<std::string> m_chooser;
-	const std::string kAutoNameDefault = "Default";
-	const std::string kAutoNameCustom = "My Auto";
+	const std::string kAutoNameDefault = "!Do Nothing!";
+	const std::string autoLine = "AutoLine";
+	const std::string leftAuto = "Left Auto";
+	const std::string rightAuto = "Right Auto";
+	const std::string centerAuto = "Center Auto";
 	std::string m_autoSelected;
-
 };
 
 START_ROBOT_CLASS(Robot)
